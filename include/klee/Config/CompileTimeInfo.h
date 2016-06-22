@@ -1,0 +1,2 @@
+#define KLEE_BUILD_MODE "Release+Asserts"
+#define KLEE_BUILD_REVISION "b69296eb2f4013a951eab4882e336ba4d5d9330a"
