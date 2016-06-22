@@ -410,6 +410,7 @@ void LIExecutor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 			kci->inst = ci;
 			kmodule->infos->infos.insert(std::make_pair(ci, kmodule->infos->dummyInfo));
 			executeCall(state,kci,temf,arguements);
+			state.pBlock = temf->begin();
 			llvm::errs()<<"temf:    "<<*(temf->begin())<<"\n";
 		}
 	}
