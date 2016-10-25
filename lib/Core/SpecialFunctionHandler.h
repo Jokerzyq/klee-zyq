@@ -136,6 +136,13 @@ namespace klee {
     HANDLER(handleMulOverflow);
     HANDLER(handleSubOverflow);
     HANDLER(handleDivRemOverflow);
+
+    //zyq add
+    HANDLER(handleIRcheck);
+    HANDLER(handleIRclock);
+    //end add
+
+
 #undef HANDLER
   };
 } // End klee namespace

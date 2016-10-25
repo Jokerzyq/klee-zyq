@@ -1471,18 +1471,18 @@ int main(int argc, char **argv, char **envp) {
                                   /*CheckDivZero=*/CheckDivZero,
                                   /*CheckOvershift=*/CheckOvershift);
   
-  //zyq add----------------------------------------------------------------------------------------------------------------
+  ///*zyq add----------------------------------------------------------------------------------------------------------------
   if (!InterruptFunction.empty()){
 	  for (std::vector<std::string>::iterator it = InterruptFunction.begin(), ie = InterruptFunction.end();
 			  it != ie; it++){
 		  Function *interruptF = mainModule->getFunction(*it);
 		  if (!interruptF){
-			  llvm::errs()<<*it<<"interrupt fupnction not found in module.\n";
+			  llvm::errs()<<*it<<"interrupt function not found in module.\n";
 		  }
 		  else IRfunction.push_back(interruptF);
 	  }
   }
-  //end add----------------------------------------------------------------------------------------------------------------
+  //end add----------------------------------------------------------------------------------------------------------------*/
 
   //cyj: 在这里得到所需的函数---------------------------------------------------------------------------------------------------
   if(!FunctionExcept.empty()){

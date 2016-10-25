@@ -3,59 +3,59 @@
 #include "LIExecutor.h"
 
 #include "Common.h"
-//#include "Context.h"
-//#include "CoreStats.h"
+#include "Context.h"
+#include "CoreStats.h"
 #include "ExternalDispatcher.h"
-//#include "ImpliedValue.h"
+#include "ImpliedValue.h"
 #include "Memory.h"
 #include "MemoryManager.h"
 #include "PTree.h"
-//#include "Searcher.h"
+#include "Searcher.h"
 #include "SeedInfo.h"
 #include "SpecialFunctionHandler.h"
 #include "StatsTracker.h"
 #include "TimingSolver.h"
 #include "UserSearcher.h"
-//#include "ExecutorTimerInfo.h"
+#include "ExecutorTimerInfo.h"
 #include "CoreStats.h"
 
-//#include "../Solver/SolverStats.h"
+#include "../Solver/SolverStats.h"
 
-//#include "klee/ExecutionState.h"
-//#include "klee/Expr.h"
-//#include "klee/Interpreter.h"
-//#include "klee/TimerStatIncrementer.h"
-//#include "klee/CommandLine.h"
-//#include "klee/Common.h"
-//#include "klee/util/Assignment.h"
-//#include "klee/util/ExprPPrinter.h"
-//#include "klee/util/ExprSMTLIBPrinter.h"
-//#include "klee/util/ExprUtil.h"
+#include "klee/ExecutionState.h"
+#include "klee/Expr.h"
+#include "klee/Interpreter.h"
+#include "klee/TimerStatIncrementer.h"
+#include "klee/CommandLine.h"
+#include "klee/Common.h"
+#include "klee/util/Assignment.h"
+#include "klee/util/ExprPPrinter.h"
+#include "klee/util/ExprSMTLIBPrinter.h"
+#include "klee/util/ExprUtil.h"
 #include "klee/util/GetElementPtrTypeIterator.h"
-//#include "klee/Config/Version.h"
+#include "klee/Config/Version.h"
 #include "klee/Config/IfLazyInitialization.h"
 #include "klee/Internal/ADT/KTest.h"
 #include "klee/Internal/ADT/RNG.h"
-//#include "klee/Internal/Module/Cell.h"
+#include "klee/Internal/Module/Cell.h"
 #include "klee/Internal/Module/InstructionInfoTable.h"
-//#include "klee/Internal/Module/KInstruction.h"
-//#include "klee/Internal/Module/KModule.h"
-//#include "klee/Internal/Support/FloatEvaluation.h"
-//#include "klee/Internal/System/Time.h"
-//#include "klee/Internal/System/MemoryUsage.h"
+#include "klee/Internal/Module/KInstruction.h"
+#include "klee/Internal/Module/KModule.h"
+#include "klee/Internal/Support/FloatEvaluation.h"
+#include "klee/Internal/System/Time.h"
+#include "klee/Internal/System/MemoryUsage.h"
 
 #if LLVM_VERSION_CODE >= LLVM_VERSION(3, 3)  //cyj: LLVM_VERSION_CODE=(3,4)
-//#include "llvm/IR/Function.h"
-//#include "llvm/IR/Attributes.h"
-//#include "llvm/IR/BasicBlock.h"
-//#include "llvm/IR/Constants.h"
-//#include "llvm/IR/Function.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/Attributes.h"
+#include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
-//#include "llvm/IR/IntrinsicInst.h"
-//#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/DataLayout.h"
-//#include "llvm/IR/TypeBuilder.h"
+#include "llvm/IR/TypeBuilder.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Value.h"
 
@@ -83,7 +83,7 @@
 //#include "llvm/Support/raw_ostream.h"
 
 #if LLVM_VERSION_CODE < LLVM_VERSION(3, 5)
-//#include "llvm/Support/CallSite.h"
+#include "llvm/Support/CallSite.h"
 #else
 #include "llvm/IR/CallSite.h"
 #endif
@@ -117,6 +117,12 @@ extern cl::opt<bool> AllowSeedTruncation;
 extern cl::opt<bool> AlwaysOutputSeeds;
 extern cl::opt<bool> OnlyOutputStatesCoveringNew;
 extern cl::opt<bool>EmitAllErrors;
+extern cl::opt<unsigned>MaxDepth;
+extern cl::opt<double>MaxInstructionTime;
+extern cl::opt<double> SeedTime;
+extern  cl::opt<bool> OnlySeed;
+extern cl::opt<unsigned> MaxMemory;
+extern cl::opt<bool> DumpStatesOnHalt;
 
 //cyj add--------------------------------------------------------------------------------------------------------------------
 cl::opt<bool>
@@ -127,11 +133,11 @@ OnlyOutputExceptionStates("only-output-exception-states",
 
 //zyq add------------------------------------------------------------------------------
 
-cl::opt<int>
+cl::opt<unsigned>
 	InstructionNum("InstructionNum",
-		cl::desc("Insert a interrupt function after executing the ginven number instructions(add by zyq)."),
+		cl::desc("Insert a interrupt function after executing the ginven number(default = 1) instructions(add by zyq)."),
 		cl::init(0));
-cl::opt<int>
+cl::opt<unsigned>
 	InterruptNum("InterruptNum",
 		cl::desc("Insert the given number interrupt functions(add by zyq)."),
 		cl::init(0));
@@ -340,9 +346,86 @@ void LIExecutor::getStructMDNodeInfo(){
 void LIExecutor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 	Instruction *i = ki->inst;
 	switch (i->getOpcode()) {
+	///*
+
+	  case Instruction::Ret: {		//cyj: ReturnInst
+	    ReturnInst *ri = cast<ReturnInst>(i);
+	    KInstIterator kcaller = state.stack.back().caller;
+	    Instruction *caller = kcaller ? kcaller->inst : 0;
+	    bool isVoidReturn = (ri->getNumOperands() == 0);
+	    ref<Expr> result = ConstantExpr::alloc(0, Expr::Bool);
+
+		//llvm::errs()<<"---------call ------:           "<<caller->getOpcode()<<"\n";
+	    if (!isVoidReturn) {
+	      result = eval(ki, 0, state).value;
+	    }
+
+	    if (state.stack.size() <= 1) {
+	      assert(!caller && "caller set on initial stack frame");
+	      terminateStateOnExit(state);
+	    } else {
+	      state.popFrame();		//cyj: 删除StackFrame中的每一个MemoryObject, 并删除StackFrame
+
+	      if (statsTracker)
+	        statsTracker->framePopped(state);
+
+	      if (InvokeInst *ii = dyn_cast<InvokeInst>(caller)) {	//cyj: 如果返回值是个函数调用
+	        transferToBasicBlock(ii->getNormalDest(), caller->getParent(), state);
+	        						//cyj: getNormalDest: Return the destination basic blocks
+	        ///*zyq add-----------------------------------------------------------
+	      } else if (Retflag && !state.IRpcstack.empty()){
+	    	  state.pc = state.IRpcstack.back();
+	    	  state.IRpcstack.pop_back();
+	    	  //end add==-------------------------------------------------------*/
+	      }else{
+	        state.pc = kcaller;
+	        ++state.pc;
+	      }
+
+	      if (!isVoidReturn) {
+	        LLVM_TYPE_Q Type *t = caller->getType();
+	        if (t != Type::getVoidTy(getGlobalContext())) {
+	          // may need to do coercion due to bitcasts
+	          Expr::Width from = result->getWidth();
+	          Expr::Width to = getWidthForLLVMType(t);
+
+	          if (from != to) {
+	            CallSite cs = (isa<InvokeInst>(caller) ? CallSite(cast<InvokeInst>(caller)) :
+	                           CallSite(cast<CallInst>(caller)));
+
+	            // XXX need to check other param attrs ?
+	#if LLVM_VERSION_CODE >= LLVM_VERSION(3, 3)
+	      bool isSExt = cs.paramHasAttr(0, llvm::Attribute::SExt);
+	#elif LLVM_VERSION_CODE >= LLVM_VERSION(3, 2)
+		    bool isSExt = cs.paramHasAttr(0, llvm::Attributes::SExt);
+	#else
+		    bool isSExt = cs.paramHasAttr(0, llvm::Attribute::SExt);
+	#endif
+	            if (isSExt) {
+	              result = SExtExpr::create(result, to);
+	            } else {
+	              result = ZExtExpr::create(result, to);
+	            }
+	          }
+
+	          bindLocal(kcaller, state, result);
+	        }
+	      } else {
+	        // We check that the return value has no users instead of
+	        // checking the type, since C defaults to returning int for
+	        // undeclared functions.
+	        if (!caller->use_empty() && !Retflag) {
+	          terminateStateOnExecError(state, "return void when caller expected a result");
+	        }
+	      }
+	    }
+	    break;
+	  }
+
 	case Instruction::GetElementPtr: {	//cyj: example: get <node.next>
 	    KGEPInstruction *kgepi = static_cast<KGEPInstruction*>(ki);
 	    ref<Expr> base = eval(ki, 0, state).value;
+
 	    // 如果: 指针为NULL, offset为符号值, 也报空指针错
 	    if(ConstantExpr *conBase = dyn_cast<ConstantExpr>(base)) {
 	    	if(conBase->getZExtValue() == 0) {
@@ -365,58 +448,313 @@ void LIExecutor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 	    bindLocal(ki, state, base);	//cyj: base为存储node.next内容的所在地址
 	    break;
 	  }
-
+    //*/
 	default:
-		FExecutor::executeInstruction(state, ki);
+		Executor::executeInstruction(state, ki);
 		break;
 	}
+}
 
-	//zyq add----------------------------------------------------------------------------------------------------------------
-	if (!IRfunction.empty())
-	{
-		llvm::errs()<<"--------------\n";
-		llvm::errs()<<"now-> block:   "<<state.pBlock<<"\n";
-		int fblock = 0;
-		if (state.BlockCount.count(state.pBlock) != 0)
-			fblock = state.BlockCount.count(state.pBlock);
-		state.BlockCount.insert(std::make_pair(state.pBlock,fblock));
 
-		llvm::errs()<<"flblock:  "<<fblock<<"\n";
-		int IRflag = 0;
-		Function *temf;
-		for (std::vector<Function *>::iterator it = IRfunction.begin();
-				it != IRfunction.end(); it++){
-			Function * irf = *it;
-			if (IRflag == 1){
-				temf = *it;
-				break;
+
+//zyq add----------------------------------------------------------------------------------------------------------------------
+void LIExecutor::run(ExecutionState &initialState) {
+  bindModuleConstants();
+
+  // Delay init till now so that ticks don't accrue during
+  // optimization and such.
+  initTimers();
+
+  states.insert(&initialState);
+
+  if (usingSeeds) {	//cyj: seed模式
+    //cyj: 把usingSeeds中的每个KTest加入seedMap[initialState]中
+	std::vector<SeedInfo> &v = seedMap[&initialState];
+
+    for (std::vector<KTest*>::const_iterator it = usingSeeds->begin(),
+           ie = usingSeeds->end(); it != ie; ++it)
+      v.push_back(SeedInfo(*it));
+
+    int lastNumSeeds = usingSeeds->size()+10;
+    double lastTime, startTime = lastTime = util::getWallTime();
+    ExecutionState *lastState = 0;
+    //cyj: 对当前ExecutionState的pc进行相应操作; 更新states;
+    //cyj: 每1000条指令统计一次seeds数和states数; 如果时间大于SeedTime,退出循环
+    while (!seedMap.empty()) {
+      if (haltExecution) goto dump;
+
+      std::map<ExecutionState*, std::vector<SeedInfo> >::iterator it =
+        seedMap.upper_bound(lastState);	//cyj: upper_bound返回的是第一个大于这个key的iterator
+      if (it == seedMap.end())
+        it = seedMap.begin();
+      lastState = it->first;
+      unsigned numSeeds = it->second.size();
+      ExecutionState &state = *lastState;
+      KInstruction *ki = state.pc;
+      stepInstruction(state);	 //cyj: 输出当前pc信息, state.pc+1, 判断统计指令数是否超过最大指令数
+
+      executeInstruction(state, ki);	//cyj: 根据指令的操作码对指令的cell进行的相应取值/赋值操作
+      processTimers(&state, MaxInstructionTime * numSeeds);
+      	  	  //cyj: 生成ptree(instructions).dot文件和states.txt文件, 并写入内容
+      	  	  //cyj: 判断是否超过maxInstTime, 为Executor.timers设置nextFireTime
+      updateStates(&state);
+      	  	  //cyj: 对Executor的states/seedMap/PTree进行更新, 添加删除state
+
+      if ((stats::instructions % 1000) == 0) {
+        int numSeeds = 0, numStates = 0;
+        for (std::map<ExecutionState*, std::vector<SeedInfo> >::iterator
+               it = seedMap.begin(), ie = seedMap.end();
+             it != ie; ++it) {
+          numSeeds += it->second.size();
+          numStates++;
+        }
+        double time = util::getWallTime();
+        if (SeedTime>0. && time > startTime + SeedTime) {
+          klee_warning("seed time expired, %d seeds remain over %d states",
+                       numSeeds, numStates);
+          break;
+        } else if (numSeeds<=lastNumSeeds-10 ||
+                   time >= lastTime+10) {
+          lastTime = time;
+          lastNumSeeds = numSeeds;
+          klee_message("%d seeds remaining over: %d states",
+                       numSeeds, numStates);
+        }
+      }
+    }
+
+    klee_message("seeding done (%d states remain)", (int) states.size());
+
+    // XXX total hack, just because I like non uniform better but want
+    // seed results to be equally weighted.
+    for (std::set<ExecutionState*>::iterator
+           it = states.begin(), ie = states.end();
+         it != ie; ++it) {
+      (*it)->weight = 1.;
+      	  	  //cyj: Weight assigned for importance of this state.  Can be
+      	  	  //cyj: used for searchers to decide what paths to explore
+    }
+
+    if (OnlySeed)
+      goto dump;
+  }	//cyj: end if (usingSeeds)
+  //cyj: seed模式不需要搜索策略, 不需要挑选待执行的state, 而是按map中的顺序依次执行完
+
+  searcher = constructUserSearcher(*this);		//cyj: 构建搜索策略
+
+  searcher->update(0, states, std::set<ExecutionState*>());
+
+  //cyj: 对selectState的pc进行相应操作; 判断是否超过MaxMemory; 更新states;
+  while (!states.empty() && !haltExecution) {
+    ExecutionState &state = searcher->selectState();
+    ExecutionState tempState = state;																			//added by qmh
+    reselectState = false;																						//added by qmh
+
+    KInstruction *ki = state.pc;
+
+    //zyq add-------------------------------------------------------------------------------------------------------------
+    bool IRres = false;
+    Retflag = false;
+    if (state.IRclock) IRres = IRinsert(state, ki);
+    if (!IRres){
+    //end add-------------------------------------------------------------------------------------------------------------
+
+		 stepInstruction(state); 	//cyj: 记录当前pc信息, state.pc+1, 判断统计指令数是否超过最大指令数
+		 executeInstruction(state, ki);	//cyj: 根据指令的操作码对指令的cell进行的相应取值/赋值操作
+		 processTimers(&state, MaxInstructionTime);
+					//cyj: 生成ptree(instructions).dot文件和states.txt文件, 并写入内容
+					//cyj: 判断是否超过maxInstTime, 为Executor.timers设置nextFireTime
+
+		//cyj: 如果限定了MaxMemory, 每当指令数为2的16次方倍数时, 就判断是否超过MaxMemory,
+		//cyj: 如果超过了就生成若干个state对应的testcase文件, 并释放这些state
+/*
+		if(reselectState){																							//added by qmh
+			state.pc = tempState.pc;
+			state.prevPC = tempState.prevPC;
+		}else
+*/
+		if (MaxMemory) {
+		  if ((stats::instructions & 0xFFFF) == 0) {		//cyj: stats::instructions高16位置零
+			// We need to avoid calling GetMallocUsage() often because it
+			// is O(elts on freelist). This is really bad since we start
+			// to pummel the freelist once we hit the memory cap.
+			unsigned mbs = util::GetTotalMallocUsage() >> 20;	//不懂
+			if (mbs > MaxMemory) {
+			  //cyj: 终结若干个state
+			  if (mbs > MaxMemory + 100) {
+				// just guess at how many to kill
+				unsigned numStates = states.size();
+				unsigned toKill = std::max(1U, numStates - numStates*MaxMemory/mbs);
+							//cyj: 1U: unsigned 1
+
+				klee_warning("killing %d states (over memory cap)", toKill);
+
+				//cyj: 终结toKill个State
+				std::vector<ExecutionState*> arr(states.begin(), states.end());
+				for (unsigned i=0,N=arr.size(); N && i<toKill; ++i,--N) {
+				  unsigned idx = rand() % N;
+
+				  // Make two pulls to try and not hit a state that
+				  // covered new code.
+				  if (arr[idx]->coveredNew)
+					idx = rand() % N;
+
+				  std::swap(arr[idx], arr[N-1]);
+				  terminateStateEarly(*arr[N-1], "Memory limit exceeded.");
+						  //cyj: 生成state相应的test00000*.****文件, 然后释放该state, 删除Executor中相应内容
+				}
+			  }
+			  atMemoryLimit = true;
+			} else {
+			  atMemoryLimit = false;
 			}
-			for (llvm::iplist<BasicBlock>::iterator jt = irf->begin();
-					jt != irf->end(); jt++){
-				BasicBlock *tempblock = jt;
-				if (tempblock == state.pBlock){
-					IRflag = 1;
+		  }
+		}
+    }
+    updateStates(&state);
+  }	//cyj: end while
+
+  delete searcher;
+  searcher = 0;
+
+ //cyj: 生成所有state相应的test00000*.****文件, 然后释放所有state, 删除Executor中相应内容
+ dump:
+  if (DumpStatesOnHalt && !states.empty()) {
+    llvm::errs() << "KLEE: halting execution, dumping remaining states\n";
+
+    //cyj modify-------------------------------------------------------------------------------------------------------------------------
+    ExecutionState &earlyState = **states.begin();
+    stepInstruction(earlyState);
+    terminateStateEarly(earlyState, "Execution halting.");
+    for (std::set<ExecutionState*>::iterator it = states.begin(), ie = states.end();
+             it != ie; ++it) {
+      terminateState(**it);
+    }	//cyj: 加快结束该函数的剩余状态, 更快符号执行下一个函数
+    //modify end------------------------------------------------------------------------------------------------------------------------
+/*    for (std::set<ExecutionState*>::iterator
+           it = states.begin(), ie = states.end();
+         it != ie; ++it) {
+      ExecutionState &state = **it;
+      stepInstruction(state); // keep stats rolling
+      	  	  	  	  	  	//cyj: 记录当前pc信息, state.pc+1, 判断统计指令数是否超过最大指令数
+      terminateStateEarly(state, "Execution halting.");
+      	  	  //cyj: 生成state相应的test00000*.****文件, 然后释放该state, 删除Executor中相应内容
+    }*/
+    updateStates(0);
+  }
+}
+
+bool LIExecutor::IRinsert(ExecutionState &state, KInstruction *ki){
+
+		bool IRflag = false;
+		Instruction *i = ki->inst;
+		KInstruction *preki = state.prevPC;
+		Instruction *prei = preki->inst;
+		unsigned int  num = 0, nowf = 0;
+		Function *temf;
+		unsigned int fblock = state.BlockCount.count(state.pBlock);
+		unsigned int visit = state.IRvisit.count(state.pBlock);
+		llvm::errs()<<"----------------------------------------------inst:           "<<i->getOpcode()<<"\n";
+		//llvm::errs()<<"---------preins-------:           "<<prei->getOpcode()<<"\n";
+		llvm::errs()<<"                "<<state.pBlock<<"IRfunction\n";
+		llvm::errs()<<"                it's "<<fblock<<"  instructions\n";
+
+			for (std::vector<Function *>::iterator it = IRfunction.begin();
+					it != IRfunction.end(); it++){
+				num ++;
+				Function *irf = *it;
+				KFunction *kf = kmodule->functionMap[irf];
+				StackFrame stacknow = state.stack.back();
+				if ( kf == stacknow.kf){
+					nowf = num ;
 					break;
 				}
 			}
-		}
-		if (IRflag == 0) temf = *(IRfunction.begin());
-		if (temf && fblock == InstructionNum && state.BlockIRnum.count(state.pBlock) < InterruptNum){
-			state.BlockIRnum.insert(state.pBlock);
-			std::vector< ref<Expr> > arguements;
-			std::vector<Value *> Args;
-			CallInst *ci = CallInst::Create(temf, Args, "",i);
-			KInstruction *kci = new KInstruction();
-			kci->inst = ci;
-			kmodule->infos->infos.insert(std::make_pair(ci, kmodule->infos->dummyInfo));
-			executeCall(state,kci,temf,arguements);
-			state.pBlock = temf->begin();
-			llvm::errs()<<"temf:    "<<*(temf->begin())<<"\n";
-		}
-	}
-		//end add----------------------------------------------------------------------------------------------------------------
+			if (!IRfunction.empty() && !state.flagterminate){
+				//llvm::errs()<<"			nowf:   "<<nowf<<"\n";
+				/*
+				llvm::errs()<<"***********************************\n";
+				for (std::multimap<int, int>::iterator it =state.BlockIRnum.begin();
+						it != state.BlockIRnum.end(); it++){
+					llvm::errs()<<"        IR       "<<it->first;
+					llvm::errs()<<"        num       "<<it->second<<"\n";
+				}
+				llvm::errs()<<"***********************************\n";
+				//*/
+				//for (unsigned fnum = 0 ; fnum <= IRfunction.size(); fnum ++)	llvm::errs()<<"     pBlock:  "<<fnum<<"          "<<state.BlockCount.count(fnum)<<"  instructions\n";
+				if (nowf < IRfunction.size() && (fblock ==InstructionNum + 1 || !visit)
+						&& state.BlockIRnum.count(state.pBlock+1) < InterruptNum ){
+					llvm::errs()<<"                it's  forking\n";
+					IRflag = true;
+					if (!visit) state.IRvisit.insert(std::make_pair(state.pBlock,true));
+					state.BlockCount.clear();
+					IRfork(state);
+					int tnum = state.BlockIRnum.count(state.pBlock+1);
+					state.BlockIRnum.insert(std::make_pair(state.pBlock+1,tnum));
+					state.pBlock = nowf + 1;
+
+					temf = *(IRfunction.begin() + nowf);
+					std::vector< ref<Expr> > arguements;
+					std::vector<Value *> Args;
+					CallInst *ci = CallInst::Create(temf, Args, "",i);
+					KInstruction *kci = new KInstruction();
+					kci->inst = ci;
+					kmodule->infos->infos.insert(std::make_pair(ci, kmodule->infos->dummyInfo));
+					state.IRpcstack.push_back(state.pc);
+					executeCall(state,kci,temf,arguements);
+				}else {
+					if ((i->getOpcode()) ==  (Instruction::Br)){
+						state.BlockCount.erase(state.pBlock);
+						state.BlockIRnum.erase(state.pBlock+1);
+						state.IRvisit.erase(state.pBlock);
+					}else if ((i->getOpcode()) ==  (Instruction::Ret)){
+							if ( nowf != 0 ){
+								state.pBlock = nowf - 1;
+								state.BlockIRnum.erase(nowf+1);
+								state.BlockCount.erase(nowf);
+								Retflag = true;
+							}
+							else{
+								state.BlockCount.insert(std::make_pair(state.pBlock,fblock));
+							}
+					}else state.BlockCount.insert(std::make_pair(state.pBlock,fblock));
+				}
+			}
+			state.flagterminate = false;
+	    return IRflag;
 }
 
+void LIExecutor::IRfork(ExecutionState &current) {
+
+    ExecutionState *falseState, *trueState = &current;
+    ++stats::forks;
+    falseState = trueState->branch();
+    addedStates.insert(falseState);
+
+    current.ptreeNode->data = 0;
+    std::pair<PTree::Node*, PTree::Node*> res =
+      processTree->split(current.ptreeNode, falseState, trueState);
+    falseState->ptreeNode = res.first;
+    trueState->ptreeNode = res.second;
+
+      if (pathWriter) {
+        falseState->pathOS = pathWriter->open(current.pathOS);
+        trueState->pathOS << "1";
+        falseState->pathOS << "0";
+      }
+      if (symPathWriter) {
+        falseState->symPathOS = symPathWriter->open(current.symPathOS);
+        trueState->symPathOS << "1";
+        falseState->symPathOS << "0";
+      }
+
+    // Kinda gross, do we even really still want this option?
+    if (MaxDepth && MaxDepth<=trueState->depth) {
+      terminateStateEarly(*trueState, "max-depth exceeded.");
+      terminateStateEarly(*falseState, "max-depth exceeded.");
+    }
+}
+//end add----------------------------------------------------------------------------------------------------
 
 
 //cyj: isWrite=false时, load指令, 从address对应的OS里read内容, 写入指令目标cell.value里
@@ -486,7 +824,6 @@ void LIExecutor::executeMemoryOperation(ExecutionState &state,
     success = state.addressSpace.resolveOne(cast<ConstantExpr>(address), op);
   }
   solver->setTimeout(0);
-
   if (success) {
     const MemoryObject *mo = op.first;
 
@@ -535,8 +872,7 @@ void LIExecutor::executeMemoryOperation(ExecutionState &state,
         		llvm::errs()<<"************************new objectstate******************\n";
         	}
         }
-        //end add----------------------------------------------------------------------------------------------------------------
-         */
+        //end add----------------------------------------------------------------------------------------------------------------*/
 
 //cyj add-------------------------------------------------------------------------------------------------------------------------------------------
     //如果offset为符号值, 则fork以下两种情况, 把offset>100的情况合并到out-of-bound情况中
@@ -637,7 +973,8 @@ void LIExecutor::executeMemoryOperation(ExecutionState &state,
 //end add-------------------------------------------------------------------------------------------------------------------------------------------
 
       const ObjectState *os = op.second;
-      if (isWrite) {	//store
+      if (isWrite) {
+    	  //store
     	  /*//cyj add
     	  llvm::errs() << "----------------------------normal write\n";
     	  target->inst->dump();
@@ -668,9 +1005,13 @@ void LIExecutor::executeMemoryOperation(ExecutionState &state,
     		}
     	}
 
+        //llvm::errs()<<"         address         "<<(address)<<"\n";
+        //llvm::errs()<<"         address         "<<(cast<ConstantExpr>(address)->getZExtValue())<<"\n";
     	//cyj: 该指针是否是第一次被访问, 如果是, 设置为被访问过.
     	std::map<uint64_t, bool>::iterator arg2MObeAccessed =
     									state.pointerBeAccessed.find(cast<ConstantExpr>(address)->getZExtValue());
+        //llvm::errs()<<"no2\n";
+
     	if(arg2MObeAccessed != state.pointerBeAccessed.end() && arg2MObeAccessed->second == false) {
     		arg2MObeAccessed->second = true;
     	}
@@ -1512,7 +1853,7 @@ void LIExecutor::terminateStateOnExit(ExecutionState &state) {
   if (!OnlyOutputExceptionStates && (!OnlyOutputStatesCoveringNew || state.coveredNew ||
       (AlwaysOutputSeeds && seedMap.count(&state))))
     interpreterHandler->processTestCase(state, 0, 0);
-  terminateState(state);
+  LIExecutor::terminateState(state);
 }
 
 
@@ -1520,7 +1861,11 @@ void LIExecutor::terminateStateOnError(ExecutionState &state,
                                      const llvm::Twine &messaget,
                                      const char *suffix,
                                      const llvm::Twine &info) {
-  std::string message = messaget.str();
+
+	llvm::errs()<<"error\n";
+	state.flagterminate = true;                            //add by zyq
+
+	std::string message = messaget.str();
   Instruction * lastInst;
   const InstructionInfo &ii = getLastNonKleeInternalInstruction(state, &lastInst);
 

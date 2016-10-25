@@ -403,6 +403,9 @@ Executor::~Executor() {
   while(!timers.empty()) {
     delete timers.back();
     timers.pop_back();
+    //zyq add-----------------------------
+    IRcheckmap.clear();
+    //end add----------------------------
   }
 }
 
@@ -1397,7 +1400,6 @@ void Executor::transferToBasicBlock(BasicBlock *dst, BasicBlock *src,
   if (state.pc->inst->getOpcode() == Instruction::PHI) {	//cyj: PHI node instruction
     PHINode *first = static_cast<PHINode*>(state.pc->inst);
     state.incomingBBIndex = first->getBasicBlockIndex(src);
-    state.pBlock = dst;
     			//cyj: getBasicBlockIndex - Return the first index of the specified basic
       	  	  	// block in the value list for this PHI
   }
@@ -1484,7 +1486,8 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     Instruction *caller = kcaller ? kcaller->inst : 0;
     bool isVoidReturn = (ri->getNumOperands() == 0);
     ref<Expr> result = ConstantExpr::alloc(0, Expr::Bool);
-    
+
+	//llvm::errs()<<"---------call ------:           "<<caller->getOpcode()<<"\n";
     if (!isVoidReturn) {
       result = eval(ki, 0, state).value;
     }
@@ -1503,6 +1506,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
         						//cyj: getNormalDest: Return the destination basic blocks
       } else {
         state.pc = kcaller;
+
         ++state.pc;
       }
 
@@ -1539,7 +1543,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
         // checking the type, since C defaults to returning int for
         // undeclared functions.
         if (!caller->use_empty()) {
-          terminateStateOnExecError(state, "return void when caller expected a result");
+         // terminateStateOnExecError(state, "return void when caller expected a result");
         }
       }
     }      
@@ -1804,7 +1808,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
     // Special instructions
   case Instruction::Select: {
-    ref<Expr> cond = eval(ki, 0, state).value;
+	ref<Expr> cond = eval(ki, 0, state).value;
     ref<Expr> tExpr = eval(ki, 1, state).value;
     ref<Expr> fExpr = eval(ki, 2, state).value;
     ref<Expr> result = SelectExpr::create(cond, tExpr, fExpr);
@@ -1824,6 +1828,9 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     				//cyj: 根据ki->operands[0]的值, 返回相应的cell.value
     ref<Expr> right = eval(ki, 1, state).value;
     bindLocal(ki, state, AddExpr::create(left, right));
+  //  llvm::errs()<<"    add*****left: "<< left<<"\n";
+    //llvm::errs()<<"    add*****right: "<< right<<"\n";
+   // llvm::errs()<<"    add*****result: "<< AddExpr::create(left, right)<<"\n";
     				//cyj: 指令ki的目标寄存器的cell.value值变为AddExpr
     break;
   }
@@ -1839,6 +1846,9 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     ref<Expr> left = eval(ki, 0, state).value;
     ref<Expr> right = eval(ki, 1, state).value;
     bindLocal(ki, state, MulExpr::create(left, right));
+    llvm::errs()<<"    mul*****left: "<< left<<"\n";
+    llvm::errs()<<"    mul*****right: "<< right<<"\n";
+    llvm::errs()<<"    mul*****result: "<< MulExpr::create(left, right)<<"\n";
     break;
   }
 
@@ -2044,6 +2054,8 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
   case Instruction::Store: {
     ref<Expr> base = eval(ki, 1, state).value;
     ref<Expr> value = eval(ki, 0, state).value;
+    //llvm::errs()<<"        base:  "<<base<<"\n";
+    //llvm::errs()<<"        value:  "<<value<<"\n";
     //cyj modify-----------------------------------------------------------------------------------------------------------------
     //executeMemoryOperation(state, true, base, value, 0);
     executeMemoryOperation(state, true, base, value, ki);
@@ -2051,7 +2063,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     break;
   }
   case Instruction::GetElementPtr: {	//cyj: example: get <node.next>
-    KGEPInstruction *kgepi = static_cast<KGEPInstruction*>(ki);
+	  KGEPInstruction *kgepi = static_cast<KGEPInstruction*>(ki);
     ref<Expr> base = eval(ki, 0, state).value;
     for (std::vector< std::pair<unsigned, uint64_t> >::iterator 
            it = kgepi->indices.begin(), ie = kgepi->indices.end(); 
@@ -2485,11 +2497,11 @@ void Executor::updateStates(ExecutionState *current) {
   if (searcher) {
     searcher->update(current, addedStates, removedStates);
   }
-  
+
   //cyj: 在Executor.states上添加待添加的states
   states.insert(addedStates.begin(), addedStates.end());
   addedStates.clear();
-  
+
   //cyj: 从Executor.states上删除已被删除的state, 从Executor.seedMap上删除已被删除的state所在的map
   //cyj: 从Executor.PTree上删除已被删除state中的Node
   for (std::set<ExecutionState*>::iterator
@@ -2670,6 +2682,7 @@ void Executor::run(ExecutionState &initialState) {
     ExecutionState &state = searcher->selectState();
     ExecutionState tempState = state;																			//added by qmh
     reselectState = false;																						//added by qmh
+
     KInstruction *ki = state.pc;
     stepInstruction(state); 	//cyj: 记录当前pc信息, state.pc+1, 判断统计指令数是否超过最大指令数
 
@@ -2814,7 +2827,6 @@ void Executor::terminateState(ExecutionState &state) {
     klee_warning_once(replayOut, 
                       "replay did not consume all objects in test input.");
   }
-
   interpreterHandler->incPathsExplored();		//cyj: m_pathsExplored++
 
   std::set<ExecutionState*>::iterator it = addedStates.find(&state);
@@ -2947,18 +2959,19 @@ void Executor::callExternalFunction(ExecutionState &state,
                                     KInstruction *target,
                                     Function *function,
                                     std::vector< ref<Expr> > &arguments) {
+
   // check if specialFunctionHandler wants it
   //cyj:查找function是否是specialFunction, 如果是的话调用SpecialFunctionHandler::*Handler, 比如handleMakeSymbolic
   if (specialFunctionHandler->handle(state, function, target, arguments))
     return;
-  
+
+  llvm::errs()<<"exter1\n";
   if (NoExternals && !okExternals.count(function->getName())) {
     llvm::errs() << "KLEE:ERROR: Calling not-OK external function : "
                  << function->getName().str() << "\n";
     terminateStateOnError(state, "externals disallowed", "user.err");
     return;
   }
-
   // normal external function handling path
   // allocate 128 bits for each argument (+return value) to support fp80's;
   // we could iterate through all the arguments first and determine the exact

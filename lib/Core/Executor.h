@@ -104,6 +104,10 @@ public:
 protected:
   class TimerInfo;
 
+  //zyq add----------------------------
+  std::map<  ref<Expr>, ConstraintManager > IRcheckmap;
+  //end add---------------------------
+
   KModule *kmodule;
   InterpreterHandler *interpreterHandler;
   Searcher *searcher;
@@ -194,7 +198,7 @@ protected:
 
   void printFileLine(ExecutionState &state, KInstruction *ki);
 
-  void run(ExecutionState &initialState);
+virtual void run(ExecutionState &initialState);
 
   // Given a concrete object in our [klee's] address space, add it to 
   // objects checked code can reference.

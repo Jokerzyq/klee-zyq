@@ -15,6 +15,7 @@
 
 #include "klee/ExecutionState.h"
 
+#include "klee/Constraints.h"
 #include "klee/Internal/Module/KInstruction.h"
 #include "klee/Internal/Module/KModule.h"
 #include "klee/Internal/Support/Debug.h"
@@ -113,6 +114,11 @@ static SpecialFunctionHandler::HandlerInfo handlerInfo[] = {
   add("__ubsan_handle_sub_overflow", handleSubOverflow, false),
   add("__ubsan_handle_mul_overflow", handleMulOverflow, false),
   add("__ubsan_handle_divrem_overflow", handleDivRemOverflow, false),
+
+  //zyq add
+  add("klee_IRcheck", handleIRcheck, false),
+  add("klee_IRclock", handleIRclock, false),
+  //end add
 
 #undef addDNR
 #undef add  
@@ -757,3 +763,54 @@ void SpecialFunctionHandler::handleDivRemOverflow(ExecutionState &state,
                                  "overflow on division or remainder",
                                  "overflow.err");
 }
+
+//zyq add-------------------------------------------------------------------------------------------------------------------
+void SpecialFunctionHandler::handleIRcheck(ExecutionState &state,
+                            KInstruction *target,
+                            std::vector<ref<Expr> > &arguments) {
+
+  assert(arguments.size()==1 && "invalid number of arguments to klee_IRcheck");
+  ref<Expr> e = arguments[0];
+
+ // llvm::errs()<<"      IRcheck    :  "<<e<<"\n";
+  bool res = true, newcons = true;
+  for (std::map<  ref<Expr> ,ConstraintManager >::iterator it = executor.IRcheckmap.begin();
+		  	  	  	 	 	 it != executor.IRcheckmap.end(); it++)
+	  if (it->second == state.constraints){
+		  newcons = false;
+		  if (it->first != e) res = false;
+	  }
+
+if (newcons) executor.IRcheckmap.insert(std::make_pair(e,state.constraints));
+
+  if (!res) {
+    executor.terminateStateOnError(state,
+                                   "invalid klee_IRcheck call (provably different)",
+                                   "user.err");
+  }
+}
+
+
+void SpecialFunctionHandler::handleIRclock(ExecutionState &state,
+                            KInstruction *target,
+                            std::vector<ref<Expr> > &arguments) {
+
+  assert(arguments.size()==1 && "invalid number of arguments to klee_IRclock");
+  ref<Expr> e = arguments[0];
+
+//  llvm::errs()<<"      IRclock    :  "<<e<<"\n";
+
+
+  if (e->getWidth() != Expr::Bool)
+	  e = NeExpr::create(e, ConstantExpr::create(1, e->getWidth()));
+
+  if (e == NeExpr::create(e, e)) state.IRclock = true;
+  else {
+	  state.IRclock = false;
+	  state.BlockCount.clear();
+	  state.BlockIRnum.clear();
+	  state.flagterminate = false;
+  }
+
+}
+//end add-------------------------------------------------------------------------------------------------------------------

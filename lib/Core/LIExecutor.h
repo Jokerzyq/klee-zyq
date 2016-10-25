@@ -37,6 +37,14 @@ protected:
 	  std::map<const MemoryObject *, const llvm::GlobalValue *> reglobalObject;
 
 	  std::multimap<const MemoryObject *, ref <Expr> >flaglobalObject;
+
+	  bool Retflag;
+
+	  void IRfork(ExecutionState &current);
+
+	  bool IRinsert(ExecutionState &state, KInstruction *ki);
+
+	  virtual void run(ExecutionState &initialState);
 	  //end add----------------------------------------------------------------------------------------------------------------
 
 	  virtual llvm::Module *setModule(llvm::Module *module, const ModuleOptions &opts);
@@ -91,7 +99,6 @@ protected:
 
 
 public:
-
 	  LIExecutor(const InterpreterOptions &opts, InterpreterHandler *ie);
 
 	  virtual ~LIExecutor();

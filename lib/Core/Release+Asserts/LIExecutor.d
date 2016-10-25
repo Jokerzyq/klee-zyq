@@ -62,16 +62,31 @@
  /home/joker/klee-lf/include/klee/Internal/Module/KInstruction.h \
  /home/joker/klee-lf/include/klee/Internal/Module/KModule.h FExecutor.h \
  FloatingPoint.h PointerInfo.h \
- /home/joker/llvm-3.4/include/llvm/IR/Type.h Common.h \
- ExternalDispatcher.h Memory.h Context.h \
+ /home/joker/llvm-3.4/include/llvm/IR/Type.h Common.h Context.h \
+ CoreStats.h /home/joker/klee-lf/include/klee/Statistic.h \
+ ExternalDispatcher.h ImpliedValue.h Memory.h \
  /home/joker/llvm-3.4/include/llvm/ADT/StringExtras.h MemoryManager.h \
- PTree.h SeedInfo.h /home/joker/klee-lf/include/klee/util/Assignment.h \
+ PTree.h Searcher.h SeedInfo.h \
+ /home/joker/klee-lf/include/klee/util/Assignment.h \
  /home/joker/klee-lf/include/klee/util/ExprEvaluator.h \
  /home/joker/klee-lf/include/klee/util/ExprVisitor.h \
  /home/joker/klee-lf/include/klee/util/ExprHashMap.h \
  SpecialFunctionHandler.h StatsTracker.h CallPathManager.h TimingSolver.h \
- /home/joker/klee-lf/include/klee/Solver.h UserSearcher.h CoreStats.h \
- /home/joker/klee-lf/include/klee/Statistic.h \
+ /home/joker/klee-lf/include/klee/Solver.h UserSearcher.h \
+ ExecutorTimerInfo.h \
+ /home/joker/klee-lf/include/klee/Internal/System/Time.h \
+ ../Solver/SolverStats.h \
+ /home/joker/klee-lf/include/klee/TimerStatIncrementer.h \
+ /home/joker/klee-lf/include/klee/Internal/Support/Timer.h \
+ /home/joker/klee-lf/include/klee/CommandLine.h \
+ /home/joker/llvm-3.4/include/llvm/Support/CommandLine.h \
+ /home/joker/llvm-3.4/include/llvm/ADT/StringMap.h \
+ /home/joker/llvm-3.4/include/llvm/Support/Allocator.h \
+ /home/joker/klee-lf/include/klee/Common.h \
+ /home/joker/klee-lf/include/klee/util/ExprPPrinter.h \
+ /home/joker/klee-lf/include/klee/util/ExprSMTLIBPrinter.h \
+ /home/joker/klee-lf/include/klee/util/PrintContext.h \
+ /home/joker/klee-lf/include/klee/util/ExprUtil.h \
  /home/joker/klee-lf/include/klee/util/GetElementPtrTypeIterator.h \
  /home/joker/llvm-3.4/include/llvm/IR/DerivedTypes.h \
  /home/joker/llvm-3.4/include/llvm/IR/Instructions.h \
@@ -86,10 +101,17 @@
  /home/joker/klee-lf/include/klee/Internal/ADT/KTest.h \
  /home/joker/klee-lf/include/klee/Internal/ADT/RNG.h \
  /home/joker/klee-lf/include/klee/Internal/Module/InstructionInfoTable.h \
- /home/joker/llvm-3.4/include/llvm/IR/Module.h \
+ /home/joker/klee-lf/include/klee/Internal/Support/FloatEvaluation.h \
+ /home/joker/klee-lf/include/klee/Internal/Support/IntEvaluation.h \
+ /home/joker/klee-lf/include/klee/Internal/System/MemoryUsage.h \
  /home/joker/llvm-3.4/include/llvm/IR/Function.h \
  /home/joker/llvm-3.4/include/llvm/IR/Argument.h \
  /home/joker/llvm-3.4/include/llvm/IR/GlobalValue.h \
+ /home/joker/llvm-3.4/include/llvm/IR/IntrinsicInst.h \
+ /home/joker/llvm-3.4/include/llvm/IR/Intrinsics.h \
+ /home/joker/llvm-3.4/include/llvm/IR/Intrinsics.gen \
+ /home/joker/llvm-3.4/include/llvm/IR/LLVMContext.h \
+ /home/joker/llvm-3.4/include/llvm/IR/Module.h \
  /home/joker/llvm-3.4/include/llvm/IR/GlobalAlias.h \
  /home/joker/llvm-3.4/include/llvm/IR/GlobalVariable.h \
  /home/joker/llvm-3.4/include/llvm/IR/Metadata.h \
@@ -102,9 +124,8 @@
  /home/joker/llvm-3.4/include/llvm/Support/Atomic.h \
  /home/joker/llvm-3.4/include/llvm/Support/Valgrind.h \
  /home/joker/llvm-3.4/include/llvm/PassAnalysisSupport.h \
- /home/joker/llvm-3.4/include/llvm/Support/CommandLine.h \
- /home/joker/llvm-3.4/include/llvm/ADT/StringMap.h \
- /home/joker/llvm-3.4/include/llvm/Support/Allocator.h
+ /home/joker/llvm-3.4/include/llvm/IR/TypeBuilder.h \
+ /home/joker/llvm-3.4/include/llvm/Support/CallSite.h
 
 LIExecutor.h:
 
@@ -240,17 +261,25 @@ PointerInfo.h:
 
 Common.h:
 
+Context.h:
+
+CoreStats.h:
+
+/home/joker/klee-lf/include/klee/Statistic.h:
+
 ExternalDispatcher.h:
 
-Memory.h:
+ImpliedValue.h:
 
-Context.h:
+Memory.h:
 
 /home/joker/llvm-3.4/include/llvm/ADT/StringExtras.h:
 
 MemoryManager.h:
 
 PTree.h:
+
+Searcher.h:
 
 SeedInfo.h:
 
@@ -274,9 +303,33 @@ TimingSolver.h:
 
 UserSearcher.h:
 
-CoreStats.h:
+ExecutorTimerInfo.h:
 
-/home/joker/klee-lf/include/klee/Statistic.h:
+/home/joker/klee-lf/include/klee/Internal/System/Time.h:
+
+../Solver/SolverStats.h:
+
+/home/joker/klee-lf/include/klee/TimerStatIncrementer.h:
+
+/home/joker/klee-lf/include/klee/Internal/Support/Timer.h:
+
+/home/joker/klee-lf/include/klee/CommandLine.h:
+
+/home/joker/llvm-3.4/include/llvm/Support/CommandLine.h:
+
+/home/joker/llvm-3.4/include/llvm/ADT/StringMap.h:
+
+/home/joker/llvm-3.4/include/llvm/Support/Allocator.h:
+
+/home/joker/klee-lf/include/klee/Common.h:
+
+/home/joker/klee-lf/include/klee/util/ExprPPrinter.h:
+
+/home/joker/klee-lf/include/klee/util/ExprSMTLIBPrinter.h:
+
+/home/joker/klee-lf/include/klee/util/PrintContext.h:
+
+/home/joker/klee-lf/include/klee/util/ExprUtil.h:
 
 /home/joker/klee-lf/include/klee/util/GetElementPtrTypeIterator.h:
 
@@ -306,13 +359,27 @@ CoreStats.h:
 
 /home/joker/klee-lf/include/klee/Internal/Module/InstructionInfoTable.h:
 
-/home/joker/llvm-3.4/include/llvm/IR/Module.h:
+/home/joker/klee-lf/include/klee/Internal/Support/FloatEvaluation.h:
+
+/home/joker/klee-lf/include/klee/Internal/Support/IntEvaluation.h:
+
+/home/joker/klee-lf/include/klee/Internal/System/MemoryUsage.h:
 
 /home/joker/llvm-3.4/include/llvm/IR/Function.h:
 
 /home/joker/llvm-3.4/include/llvm/IR/Argument.h:
 
 /home/joker/llvm-3.4/include/llvm/IR/GlobalValue.h:
+
+/home/joker/llvm-3.4/include/llvm/IR/IntrinsicInst.h:
+
+/home/joker/llvm-3.4/include/llvm/IR/Intrinsics.h:
+
+/home/joker/llvm-3.4/include/llvm/IR/Intrinsics.gen:
+
+/home/joker/llvm-3.4/include/llvm/IR/LLVMContext.h:
+
+/home/joker/llvm-3.4/include/llvm/IR/Module.h:
 
 /home/joker/llvm-3.4/include/llvm/IR/GlobalAlias.h:
 
@@ -338,8 +405,6 @@ CoreStats.h:
 
 /home/joker/llvm-3.4/include/llvm/PassAnalysisSupport.h:
 
-/home/joker/llvm-3.4/include/llvm/Support/CommandLine.h:
+/home/joker/llvm-3.4/include/llvm/IR/TypeBuilder.h:
 
-/home/joker/llvm-3.4/include/llvm/ADT/StringMap.h:
-
-/home/joker/llvm-3.4/include/llvm/Support/Allocator.h:
+/home/joker/llvm-3.4/include/llvm/Support/CallSite.h:

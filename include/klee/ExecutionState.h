@@ -192,9 +192,13 @@ public:
   std::set<std::string> arrayNames;
 
   //zyq add------------------------------------------------------------
-    std::multimap <llvm::BasicBlock *, int> BlockCount;
-    std::set <llvm::BasicBlock *> BlockIRnum;
-    llvm::BasicBlock *pBlock;
+    std::multimap <int, int> BlockCount;
+    std::multimap <int, int> BlockIRnum;
+    std::multimap <int, bool>IRvisit;
+    std::vector < KInstIterator >IRpcstack;
+    int pBlock;
+    bool flagterminate;
+    bool IRclock;
   //end add------------------------------------------------------------
 
   std::string getFnAlias(std::string fn);

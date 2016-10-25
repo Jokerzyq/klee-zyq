@@ -247,7 +247,7 @@ void WeightedRandomSearcher::update(ExecutionState *current,
 
   if (current && updateWeights && !removedStates.count(current))
     states->update(current, getWeight(current));
-  
+
   for (std::set<ExecutionState*>::const_iterator it = addedStates.begin(),
          ie = addedStates.end(); it != ie; ++it) {
     ExecutionState *es = *it;

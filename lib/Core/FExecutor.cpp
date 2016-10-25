@@ -439,7 +439,7 @@ void FExecutor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 			  // checking the type, since C defaults to returning int for
 			  // undeclared functions.
 			  if (!caller->use_empty()) {
-				terminateStateOnExecError(state, "return void when caller expected a result");
+				//terminateStateOnExecError(state, "return void when caller expected a result");
 			  }
 			}
 		  }else if(result->getWidth() == Expr::Bool){
@@ -595,18 +595,21 @@ void FExecutor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
       case Instruction::Br: {																//branch
 
-    	  llvm::errs()<<"Br\n";
+    	 // llvm::errs()<<"Br\n";
           BranchInst *bi = cast<BranchInst>(i);
+
+          bool no = false;
           if (bi->isUnconditional()) {														//unconditional branch, jump directly
+           //  llvm::errs()<<"\n\n\n"<<*(bi->getSuccessor(0))<<"\n";
             transferToBasicBlock(bi->getSuccessor(0), bi->getParent(), state);
           } else {																			//conditional branch
+            // llvm::errs()<<"\n\n\n"<<*(bi->getSuccessor(0))<<"\n";
+            //  llvm::errs()<<*(bi->getSuccessor(1))<<"\n\n\n\n";
             // FIXME: Find a way that we don't have this hidden dependency.
             assert(bi->getCondition() == bi->getOperand(0) &&									//ensure the condition is the first operand
                    "Wrong operand index!");
             ref<Expr> cond = eval(ki, 0, state).value;
 
-            if(state.isBr){
-          	  state.isBr = false;
 
       		  Executor::StatePair branches = fork(state, cond, false);
 
@@ -614,19 +617,15 @@ void FExecutor::executeInstruction(ExecutionState &state, KInstruction *ki) {
       		  // requires that we still be in the context of the branch
       		  // instruction (it reuses its statistic id). Should be cleaned
       		  // up with convenient instruction specific data.
+      	    ///*
       		  if (statsTracker && state.stack.back().kf->trackCoverage)
       			statsTracker->markBranchVisited(branches.first, branches.second);
-
       		  if (branches.first)																//will always choose the first branch?
       			transferToBasicBlock(bi->getSuccessor(0), bi->getParent(), *branches.first);
       		  if (branches.second)
       			transferToBasicBlock(bi->getSuccessor(1), bi->getParent(), *branches.second);
+      			//*/
       		}
-      		else{
-      			state.isBr = true;
-      			reselectState = true;
-      		}
-          }
           break;
         }
 

@@ -90,6 +90,12 @@ ExecutionState::ExecutionState(KFunction *kf) :
 	ret_color(0),
 	//end add
 
+	//zyq add
+	IRclock(false),
+	pBlock(0),
+	flagterminate(false),
+	//end add
+
     instsSinceCovNew(0),
     coveredNew(false),
     forkDisabled(false),
@@ -126,6 +132,8 @@ ExecutionState::~ExecutionState() {
   //zyq add
   BlockCount.clear();
   BlockIRnum.clear();
+  IRvisit.clear();
+  IRpcstack.clear();
   //end add
 
   while (!stack.empty()) popFrame();
@@ -165,6 +173,12 @@ ExecutionState::ExecutionState(const ExecutionState& state):
 
 	//zyq add
 	pBlock(state.pBlock),
+	BlockIRnum(state.BlockIRnum),
+	BlockCount(state.BlockCount),
+	IRpcstack(state.IRpcstack),
+	IRvisit(state.IRvisit),
+	IRclock(state.IRclock),
+	flagterminate(state.flagterminate),
 	//end add
 
     weight(state.weight),
@@ -220,6 +234,12 @@ ExecutionState::ExecutionState(const ExecutionState& state, std::vector<std::str
 
 	//zyq add
 	pBlock(state.pBlock),
+	BlockIRnum(state.BlockIRnum),
+	BlockCount(state.BlockCount),
+	IRpcstack(state.IRpcstack),
+	IRvisit(state.IRvisit),
+	IRclock(state.IRclock),
+	flagterminate(state.flagterminate),
 	//end add
 
     queryCost(state.queryCost),
